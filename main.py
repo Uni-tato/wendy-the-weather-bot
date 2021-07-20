@@ -8,7 +8,7 @@ import config
 import weather as weather_info
 import forecast as forecast_manager
 
-client = commands.Bot(command_prefix='W ')
+client = commands.Bot(command_prefix=config.PREFIX)
 
 @client.command()
 async def test(ctx):
