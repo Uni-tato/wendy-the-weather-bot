@@ -1,10 +1,14 @@
-# Yes there are much better ways to do this, but I don't care.
+"""Manage and send forecasts at their scheduled times.
 
-# need to create a load functin, and make save/load functionality automatic.
+Yes there are much better ways to do this, but I don't care.
+"""
 
-import datetime
+# TODO(alex): need to create a load function, and make save/load functionality automatic
+
 import asyncio
+import datetime
 import json
+from typing import Dict
 
 forecasts = {} # channel_id: {forecast_id: forecast}
 
@@ -12,24 +16,46 @@ class UnknownFrequencyError(Exception):
     pass
 
 class Forecast:
+    """Represents a scheduled forecast message.
 
-    def __init__(self, freq, time_str, *args):
+    Attributes:
+        freq: frequency of the message
+        run_time: the time when the message should be sent
+    """
+
+    def __init__(self, freq: str, time_str: str, *args):
         self.freq = freq
         self.run_time = time_str_to_tuple(time_str)
         self.command_args = args
 
         self.next_run_time = self.calc_first_run_time()
 
-    def should_run(self):
+    def should_run(self) -> bool:
+        """Checks if the forecast should be ran.
+        
+        Returns:
+            A boolean if the forecast should have been ran or not, based on
+            the calculated next run time of the message.
+        """
+
         return self.next_run_time <= datetime.datetime.now()
     
-    def calc_first_run_time(self):
+    def calc_first_run_time(self) -> datetime.datetime:
+        """Calculate when the forecast should next run.
 
+        This calculates the first next time that matches
+        the hours and minutes set from the forecast's run_time.
+
+        Returns:
+            A datetime object representing the datetime of the
+            next run
+        """
+
+        # Create a run time with the corret hour and minute
         now = datetime.datetime.now()
-        # Create a run time with the corret hour and minute:
         runtime = now.replace(hour = self.run_time[0], minute = self.run_time[1])
 
-        # Make sure runtime is in the future:
+        # Make sure runtime is in the future
         timedelta = self.get_timedelta()
         while runtime < now:
             runtime += timedelta
@@ -37,25 +63,40 @@ class Forecast:
         return runtime
 
     def update_next_run_time(self):
+        """Sets the next run time of the forecast."""
+
         self.next_run_time += self.get_timedelta()
 
-    def get_timedelta(self):
+    def get_timedelta(self) -> datetime.timedelta:
+        """Calculates the time delta from the frequency string of the forecast.
+        
+        Returns:
+            A timedelta object of the set length.
+        """
+
         if self.freq == "hourly":
             timedelta = datetime.timedelta(hours = 1)
         elif self.freq == "daily":
             timedelta = datetime.timedelta(days = 1)
         elif self.freq == "weekly":
             timedelta = datetime.timedelta(weeks = 1)
+
         return timedelta
 
-    def get_save_data(self):
-        save_dict = {
+    def get_save_data(self) -> Dict:
+        """Returns a dict that fully describes the forecast.
+        
+        The purpose of this method is for saving the returned dict.
+        
+        Returns:
+            A saveable dict.
+        """
+
+        return {
                 "freq": self.freq,
                 "run_time": self.run_time,
                 "command_args": self.command_args
             }
-        return save_dict
-        
 
 
 class FakeContext:
@@ -63,6 +104,7 @@ class FakeContext:
         self.channel = channel
     async def send(self, *args, **kwargs):
         await self.channel.send(*args, **kwargs)
+
 
 def time_str_to_tuple(time_str):
     return tuple(int(n) for n in time_str.split(':'))
@@ -108,6 +150,7 @@ def save():
     with open(f"saved_forecasts\\{time_str}.json", 'w') as file:
         save_data = json.dump(data, file)
 
+
 def load(file_name = None):
     print("Loading forecasts")
     if file_name == None:
@@ -120,6 +163,7 @@ def load(file_name = None):
             forecasts[channel_id][forecast_id] = Forecast(forecast_data['freq'],
                                                           forecast_data['run_time'],
                                                           *forecast_data['command_args'])
+
 
 async def forecast_loop(client):
     ''' The loop that checks if a forecast needs to be sent. '''
@@ -137,5 +181,3 @@ async def forecast_loop(client):
                     if channel == None:
                         channel = await client.fetch_channel(channel_id)
                     await send_forecast(channel, forecast, forecast_id)
-
-
