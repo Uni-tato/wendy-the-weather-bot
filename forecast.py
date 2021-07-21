@@ -14,7 +14,13 @@ class Forecast:
 
     def __init__(self, freq, time_str, *args):
         self.freq = freq
-        self.run_time = time_str_to_tuple(time_str)
+        if type(time_str) in (list, tuple):
+            # if this is the case then we're (hopefully) getting
+            # it pre-formated the way we want, probably result of
+            # loading from file.
+            self.run_time = tuple(time_str)
+        else:
+            self.run_time = time_str_to_tuple(time_str)
         self.command_args = args
 
         self.next_run_time = self.calc_first_run_time()
