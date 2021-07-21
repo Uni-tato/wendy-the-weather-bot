@@ -100,36 +100,69 @@ class Forecast:
 
 
 class FakeContext:
+    """Fake Discord message context object.
+    
+    The only method this object has is the send method,
+    for use in triggering the weather command manually
+    for the forecasts.
+    """
+
     def __init__(self, channel):
         self.channel = channel
+
     async def send(self, *args, **kwargs):
         await self.channel.send(*args, **kwargs)
 
 
 def time_str_to_tuple(time_str):
+    """Converts a time string in the form X:Y to a tuple (X, Y)"""
+
     return tuple(int(n) for n in time_str.split(':'))
 
 
 def add_forecast(channel_id, freq, time_str, *args):
+    """Adds a forecast to the schedule.
+    
+    Args:
+        channel_id: The discord channel ID to send the message too.
+        freq: How often to send the message - one of hourly, daily, or weekly.
+        time_str: Time string when to schedule the forecast, format X:Y.
+        *args: All other arguments to pass to the weather command.
+    Returns:
+        The integer ID of the new forecast.    
+    """
+
+    # Validate the freq parameter
+    # TODO(anyone): Do this in the discord command instead of here, and assume at this point it's already been validated?
     if freq not in ('hourly', 'daily', 'weekly'):
         raise UnknownFrequencyError(f"The frequency: '{freq}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
 
     if channel_id in forecasts:
-        # If the channel exists in the forecast dict:
+        # If the channel exists in the forecast dict, reserve a unique forecast ID for the new forecast.
+        # Checks with all other forecasts in the same channel.
         int_keys = set(filter(lambda key: type(key) == int, forecasts[channel_id].keys()))
         forecast_id = (max(int_keys)+1) if len(int_keys) else 1
     else:
-        # If the channel does not exist:
+        # If the channel does not exist in the forecasts dict, create it and assign a forecast ID of 1.
         forecasts[channel_id] = dict()
         forecast_id = 1
 
-    # Add forecast to forecasts dict
+    # Add the new forecast to forecasts dict
     forecasts[channel_id][forecast_id] = Forecast(freq, time_str, *args)
-    
+
     return forecast_id
 
 
 async def send_forecast(channel, forecast, forecast_id):
+    """Sends a scheduled forcast message.
+
+    Args:
+        channel: The discord channel object where to send the message to.
+        forecast: The forecast object.
+        forecast_id: The ID of the forecast.
+    """
+
+    # TODO(anyone): just no.
     from main import weather
     
     ctx = FakeContext(channel)
@@ -139,6 +172,8 @@ async def send_forecast(channel, forecast, forecast_id):
 
 
 def save():
+    """Saves the forecast dict to disk."""
+
     data = dict()
     for channel_id, channel_forecasts in forecasts.items():
         channel_data = dict()
@@ -152,6 +187,8 @@ def save():
 
 
 def load(file_name = None):
+    """Loads a forecast dict from disk."""
+
     print("Loading forecasts")
     if file_name == None:
         file_name = input("Please input name of file:")
@@ -166,7 +203,8 @@ def load(file_name = None):
 
 
 async def forecast_loop(client):
-    ''' The loop that checks if a forecast needs to be sent. '''
+    """Constantly running loop that checks if a forecast needs to be sent."""
+    
     await client.wait_until_ready()
     #add_forecast(400016596476887040, 'hourly', '15:41',  "today") # bot testing
     #add_forecast(829634118651478016, 'hourly', '15:41',  "today") # dm
