@@ -1,10 +1,9 @@
 # Yes there are much better ways to do this, but I don't care.
 
-# need to create a load functin, and make save/load functionality automatic.
-
 import datetime
 import asyncio
 import json
+import pathlib
 
 forecasts = {} # channel_id: {forecast_id: forecast}
 
@@ -105,14 +104,16 @@ def save():
         data[channel_id] = channel_data
         
     time_str = datetime.datetime.now().strftime("%d-%m-%Y %H-%M")
-    with open(f"saved_forecasts\\{time_str}.json", 'w') as file:
+    path = pathlib.Path(f"saved_forecasts/{time_str}.json")
+    with open(path, 'w') as file:
         save_data = json.dump(data, file)
 
 def load(file_name = None):
     print("Loading forecasts")
     if file_name == None:
         file_name = input("Please input name of file:")
-    with open(f"saved_forecasts\\{file_name}.json", 'r') as file:
+    path = pathlib.Path(f"saved_forecasts/{file_name}.json")
+    with open(path, 'r') as file:
         data = json.load(file)
     for channel_id, channel_forecasts in data.items():
         forecasts[channel_id] = dict()
