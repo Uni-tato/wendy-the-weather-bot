@@ -130,3 +130,6 @@ dmypy.json
 
 # Config file
 config.py
+
+# Saved_data
+saved_forecasts/
