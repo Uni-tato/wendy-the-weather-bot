@@ -9,8 +9,6 @@ import pathlib
 import sqlite3 as sl
 from typing import Dict
 
-# forecasts = {} # channel_id: {forecast_id: forecast}
-
 DATABASE_FILENAME = "test.db"
 
 # TODO(anyone): The Forecasts also need a TYPE / maybe just all args?
@@ -18,6 +16,7 @@ DATABASE_FILENAME = "test.db"
 
 # TODO: Get individual forecasts by id
 # TODO: Get forecasts by server? channel? so they need a server id column as well?
+# TODO: edit_forecast function
 
 class UnknownFrequencyError(Exception):
     pass
@@ -26,15 +25,17 @@ class Forecast:
     """Represents a scheduled forecast message.
 
     Attributes:
-        freq: frequency of the message
-        run_time: the time when the message should be sent
+        id: Forecast ID of the forecast.
+        channel_id: The Discord channel ID where the forecast needs to be sent.
+        region: The region of the forecast (Cities).
+        run_time: The time when the message should be sent in minutes since midnight.
+        period: How often the forecast should be sent, one of hourly, daily, or weekly.
     """
 
     def __init__(self, id, channel_id, region, run_time, period):
         self.id = id
         self.channel_id = channel_id
         self.region = region
-        # TODO: Convert run_time in minutes from database to tuple?
         self.run_time = run_time
         self.period = period
 
@@ -81,6 +82,7 @@ class Forecast:
 
         return runtime
 
+    # TODO: Since we have a database-model now, and no objects are cached like this... does this even do anything?
     def update_next_run_time(self):
         """Sets the next run time of the forecast."""
 
@@ -127,36 +129,37 @@ def initialize_database():
         conn.execute(sql_create_forecasts_table)
 
 
-# def time_str_to_tuple(time_str):
-#     """Converts a time string in the form X:Y to a tuple (X, Y)"""
-
-#     return tuple(int(n) for n in time_str.split(':'))
-
-
 def get_forecasts():
-    # Return a list of all forecasts
+    """Returns a list of all forecasts."""
+
     with DatabaseConnection() as conn:
         sql_select_all_query = "SELECT * FROM forecast"
         rows = conn.execute(sql_select_all_query).fetchall()
         return [Forecast(*row) for row in rows]
 
 
-def add_forecast(channel_id, region, time, period):
+def add_forecast(channel_id, region, time_str, period):
     """Adds a forecast to the schedule.
     
     Args:
-        channel_id: The discord channel ID to send the message too.
-        freq: How often to send the message - one of hourly, daily, or weekly.
+        channel_id: The Discord channel ID where the forecast needs to be sent.
+        region: The region of the forecast (Cities).
         time_str: Time string when to schedule the forecast, format X:Y.
-        *args: All other arguments to pass to the weather command.
+        period: How often the forecast should be sent, one of hourly, daily, or weekly.
+
     Returns:
-        The integer ID of the new forecast.    
+        The integer ID of the new forecast.
     """
+
+    # Convert time_str to minutes since midnight
+    # TODO: Validate this
+    time_tuple = tuple(int(n) for n in time_str.split(':'))
+    time = time_tuple[0] * 60 + time_tuple[1]
 
     # Validate the freq parameter
     # TODO(anyone): Do this in the discord command instead of here, and assume at this point it's already been validated?
-    if freq not in ('hourly', 'daily', 'weekly'):
-        raise UnknownFrequencyError(f"The frequency: '{freq}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
+    if period not in ('hourly', 'daily', 'weekly'):
+        raise UnknownFrequencyError(f"The frequency: '{period}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
 
     data = (
         channel_id,
@@ -197,22 +200,27 @@ def remove_forecast(forecast_id):
 
 
 # TODO: This
-# async def send_forecast(channel, forecast, forecast_id):
-#     """Sends a scheduled forcast message.
+async def send_forecast(client, forecast: Forecast):
+    """Sends a scheduled forcast message.
 
-#     Args:
-#         channel: The discord channel object where to send the message to.
-#         forecast: The forecast object.
-#         forecast_id: The ID of the forecast.
-#     """
+    Args:
+        client: The main Discord client.
+        forecast: The forecast object.
+    """
 
-#     # TODO(anyone): just no.
-#     from main import weather
-    
-#     ctx = FakeContext(channel)
-#     await weather(ctx, *forecast.command_args)
+    # TODO(anyone): just no.
+    from main import weather
 
-#     forecast.update_next_run_time()
+    channel = client.get_channel(forecast.channel_id)
+    if channel == None:
+        channel = await client.fetch_channel(forecast.channel_id)
+    ctx = FakeContext(channel)
+
+    # TODO: different forecast type arguments
+    # await weather(ctx, *forecast.command_args)
+    await weather(ctx)
+
+    forecast.update_next_run_time()
 
 
 async def forecast_loop(client):
@@ -224,14 +232,9 @@ async def forecast_loop(client):
     while not client.is_closed():
         await asyncio.sleep(30)
 
-        # TODO: This
-        # for channel_id, channel_forecasts in forecasts.items():
-        #     for forecast_id, forecast in channel_forecasts.items():
+        for forecast in get_forecasts():
+            if forecast.should_run():
+                await send_forecast(client, forecast)
 
-        #         if forecast.should_run():
-        #             channel = client.get_channel(channel_id)
-        #             if channel == None:
-        #                 channel = await client.fetch_channel(channel_id)
-        #             await send_forecast(channel, forecast, forecast_id)
 
 initialize_database()

@@ -133,3 +133,6 @@ config.py
 
 # Saved_data
 saved_forecasts/
+
+# Forecast databases
+*.db
