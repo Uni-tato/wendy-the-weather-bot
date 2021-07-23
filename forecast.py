@@ -6,9 +6,18 @@ import asyncio
 import datetime
 import json
 import pathlib
+import sqlite3 as sl
 from typing import Dict
 
-forecasts = {} # channel_id: {forecast_id: forecast}
+# forecasts = {} # channel_id: {forecast_id: forecast}
+
+DATABASE_FILENAME = "test.db"
+
+# TODO(anyone): The Forecasts also need a TYPE / maybe just all args?
+# But how would that be stored in the database...
+
+# TODO: Get individual forecasts by id
+# TODO: Get forecasts by server? channel? so they need a server id column as well?
 
 class UnknownFrequencyError(Exception):
     pass
@@ -21,18 +30,25 @@ class Forecast:
         run_time: the time when the message should be sent
     """
 
-    def __init__(self, freq: str, time_str: str, *args):
-        self.freq = freq
-        if type(time_str) in (list, tuple):
-            # if this is the case then we're (hopefully) getting
-            # it pre-formated the way we want, probably result of
-            # loading from file.
-            self.run_time = tuple(time_str)
-        else:
-            self.run_time = time_str_to_tuple(time_str)
-        self.command_args = args
+    def __init__(self, id, channel_id, region, run_time, period):
+        self.id = id
+        self.channel_id = channel_id
+        self.region = region
+        # TODO: Convert run_time in minutes from database to tuple?
+        self.run_time = run_time
+        self.period = period
+
+        if self.period == "hourly":
+            self.timedelta = datetime.timedelta(hours = 1)
+        elif self.period == "daily":
+            self.timedelta = datetime.timedelta(days = 1)
+        elif self.period == "weekly":
+            self.timedelta = datetime.timedelta(weeks = 1)
 
         self.next_run_time = self.calc_first_run_time()
+    
+    def __repr__(self):
+        return f"Forecast #{self.id} in {self.channel_id} for {self.region} at {self.run_time}"
 
     def should_run(self) -> bool:
         """Checks if the forecast should be ran.
@@ -57,50 +73,18 @@ class Forecast:
 
         # Create a run time with the corret hour and minute
         now = datetime.datetime.now()
-        runtime = now.replace(hour = self.run_time[0], minute = self.run_time[1])
+        runtime = now.replace(hour = self.run_time // 60, minute = self.run_time % 60)
 
         # Make sure runtime is in the future
-        timedelta = self.get_timedelta()
         while runtime < now:
-            runtime += timedelta
+            runtime += self.timedelta
 
         return runtime
 
     def update_next_run_time(self):
         """Sets the next run time of the forecast."""
 
-        self.next_run_time += self.get_timedelta()
-
-    def get_timedelta(self) -> datetime.timedelta:
-        """Calculates the time delta from the frequency string of the forecast.
-        
-        Returns:
-            A timedelta object of the set length.
-        """
-
-        if self.freq == "hourly":
-            timedelta = datetime.timedelta(hours = 1)
-        elif self.freq == "daily":
-            timedelta = datetime.timedelta(days = 1)
-        elif self.freq == "weekly":
-            timedelta = datetime.timedelta(weeks = 1)
-
-        return timedelta
-
-    def get_save_data(self) -> Dict:
-        """Returns a dict that fully describes the forecast.
-        
-        The purpose of this method is for saving the returned dict.
-        
-        Returns:
-            A saveable dict.
-        """
-
-        return {
-                "freq": self.freq,
-                "run_time": self.run_time,
-                "command_args": self.command_args
-            }
+        self.next_run_time += self.timedelta
 
 
 class FakeContext:
@@ -118,13 +102,46 @@ class FakeContext:
         await self.channel.send(*args, **kwargs)
 
 
-def time_str_to_tuple(time_str):
-    """Converts a time string in the form X:Y to a tuple (X, Y)"""
+class DatabaseConnection:
+    def __enter__(self):
+        self.connection = sl.connect(DATABASE_FILENAME)
+        self.cursor = self.connection.cursor()
+        return self.cursor
 
-    return tuple(int(n) for n in time_str.split(':'))
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.cursor.close()
+        self.connection.commit()
+        self.connection.close()
 
 
-def add_forecast(channel_id, freq, time_str, *args):
+def initialize_database():
+    with DatabaseConnection() as conn:
+        sql_create_forecasts_table = """
+            CREATE TABLE IF NOT EXISTS forecast (
+                forecast_id INTEGER PRIMARY KEY,
+                channel_id BIGINT NOT NULL,
+                region TINYTEXT NOT NULL,
+                run_time INTEGER NOT NULL,
+                period TINYTEXT NOT NULL
+            );"""
+        conn.execute(sql_create_forecasts_table)
+
+
+# def time_str_to_tuple(time_str):
+#     """Converts a time string in the form X:Y to a tuple (X, Y)"""
+
+#     return tuple(int(n) for n in time_str.split(':'))
+
+
+def get_forecasts():
+    # Return a list of all forecasts
+    with DatabaseConnection() as conn:
+        sql_select_all_query = "SELECT * FROM forecast"
+        rows = conn.execute(sql_select_all_query).fetchall()
+        return [Forecast(*row) for row in rows]
+
+
+def add_forecast(channel_id, region, time, period):
     """Adds a forecast to the schedule.
     
     Args:
@@ -141,71 +158,61 @@ def add_forecast(channel_id, freq, time_str, *args):
     if freq not in ('hourly', 'daily', 'weekly'):
         raise UnknownFrequencyError(f"The frequency: '{freq}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
 
-    if channel_id in forecasts:
-        # If the channel exists in the forecast dict, reserve a unique forecast ID for the new forecast.
-        # Checks with all other forecasts in the same channel.
-        int_keys = set(filter(lambda key: type(key) == int, forecasts[channel_id].keys()))
-        forecast_id = (max(int_keys)+1) if len(int_keys) else 1
-    else:
-        # If the channel does not exist in the forecasts dict, create it and assign a forecast ID of 1.
-        forecasts[channel_id] = dict()
-        forecast_id = 1
+    data = (
+        channel_id,
+        region,
+        time,
+        period
+    )
+    with DatabaseConnection() as conn:
+        sql_insert_forecast = """
+            INSERT INTO forecast (
+                channel_id,
+                region,
+                run_time,
+                period
+            ) VALUES (?, ?, ?, ?);
+        """
+        conn.execute(sql_insert_forecast, data)
 
-    # Add the new forecast to forecasts dict
-    forecasts[channel_id][forecast_id] = Forecast(freq, time_str, *args)
-
-    return forecast_id
+    # TODO: Return forecast_id?
+    # return forecast_id
 
 
-async def send_forecast(channel, forecast, forecast_id):
-    """Sends a scheduled forcast message.
-
-    Args:
-        channel: The discord channel object where to send the message to.
-        forecast: The forecast object.
-        forecast_id: The ID of the forecast.
-    """
-
-    # TODO(anyone): just no.
-    from main import weather
+def remove_forecast(forecast_id):
+    """Removes the forecast with the forecast id.
     
-    ctx = FakeContext(channel)
-    await weather(ctx, *forecast.command_args)
+    Args:
+        forecast_id: The ID of the forecast to be removed.
 
-    forecast.update_next_run_time()
-
-
-def save():
-    """Saves the forecast dict to disk."""
-
-    data = dict()
-    for channel_id, channel_forecasts in forecasts.items():
-        channel_data = dict()
-        for forecast_id, forecast in channel_forecasts.items():
-            channel_data[forecast_id] = forecast.get_save_data()
-        data[channel_id] = channel_data
-        
-    time_str = datetime.datetime.now().strftime("%d-%m-%Y %H-%M")
-    path = pathlib.Path(f"saved_forecasts/{time_str}.json")
-    with open(path, 'w') as file:
-        save_data = json.dump(data, file)
+    Raises:
+        Something.
+    """
+    # TODO(anyone): Raise error if it doesn't exist
+    with DatabaseConnection() as conn:
+        sql_remove_forecast = """
+            DELETE FROM forecast WHERE forecast_id=?
+        """
+        conn.execute(sql_remove_forecast, (forecast_id,))
 
 
-def load(file_name = None):
-    """Loads a forecast dict from disk."""
+# TODO: This
+# async def send_forecast(channel, forecast, forecast_id):
+#     """Sends a scheduled forcast message.
 
-    print("Loading forecasts")
-    if file_name == None:
-        file_name = input("Please input name of file:")
-    path = pathlib.Path(f"saved_forecasts/{file_name}.json")
-    with open(path, 'r') as file:
-        data = json.load(file)
-    for channel_id, channel_forecasts in data.items():
-        forecasts[channel_id] = dict()
-        for forecast_id, forecast_data in channel_forecasts.items():
-            forecasts[channel_id][forecast_id] = Forecast(forecast_data['freq'],
-                                                          forecast_data['run_time'],
-                                                          *forecast_data['command_args'])
+#     Args:
+#         channel: The discord channel object where to send the message to.
+#         forecast: The forecast object.
+#         forecast_id: The ID of the forecast.
+#     """
+
+#     # TODO(anyone): just no.
+#     from main import weather
+    
+#     ctx = FakeContext(channel)
+#     await weather(ctx, *forecast.command_args)
+
+#     forecast.update_next_run_time()
 
 
 async def forecast_loop(client):
@@ -217,11 +224,14 @@ async def forecast_loop(client):
     while not client.is_closed():
         await asyncio.sleep(30)
 
-        for channel_id, channel_forecasts in forecasts.items():
-            for forecast_id, forecast in channel_forecasts.items():
+        # TODO: This
+        # for channel_id, channel_forecasts in forecasts.items():
+        #     for forecast_id, forecast in channel_forecasts.items():
 
-                if forecast.should_run():
-                    channel = client.get_channel(channel_id)
-                    if channel == None:
-                        channel = await client.fetch_channel(channel_id)
-                    await send_forecast(channel, forecast, forecast_id)
+        #         if forecast.should_run():
+        #             channel = client.get_channel(channel_id)
+        #             if channel == None:
+        #                 channel = await client.fetch_channel(channel_id)
+        #             await send_forecast(channel, forecast, forecast_id)
+
+initialize_database()
