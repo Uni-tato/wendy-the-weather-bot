@@ -138,7 +138,7 @@ def get_forecasts():
         return [Forecast(*row) for row in rows]
 
 
-def add_forecast(channel_id, region, time_str, period):
+def add_forecast(channel_id, region, time, period):
     """Adds a forecast to the schedule.
     
     Args:
