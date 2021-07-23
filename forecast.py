@@ -9,7 +9,7 @@ import pathlib
 import sqlite3 as sl
 from typing import Dict
 
-DATABASE_FILENAME = "test.db"
+DATABASE_FILENAME = "test_forecasts.db"
 
 # TODO(anyone): The Forecasts also need a TYPE / maybe just all args?
 # But how would that be stored in the database...
@@ -144,22 +144,12 @@ def add_forecast(channel_id, region, time_str, period):
     Args:
         channel_id: The Discord channel ID where the forecast needs to be sent.
         region: The region of the forecast (Cities).
-        time_str: Time string when to schedule the forecast, format X:Y.
+        time: Time when the forecast will be sent in minutes since midnight.
         period: How often the forecast should be sent, one of hourly, daily, or weekly.
 
     Returns:
         The integer ID of the new forecast.
     """
-
-    # Convert time_str to minutes since midnight
-    # TODO: Validate this
-    time_tuple = tuple(int(n) for n in time_str.split(':'))
-    time = time_tuple[0] * 60 + time_tuple[1]
-
-    # Validate the freq parameter
-    # TODO(anyone): Do this in the discord command instead of here, and assume at this point it's already been validated?
-    if period not in ('hourly', 'daily', 'weekly'):
-        raise UnknownFrequencyError(f"The frequency: '{period}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
 
     data = (
         channel_id,
@@ -178,7 +168,7 @@ def add_forecast(channel_id, region, time_str, period):
         """
         conn.execute(sql_insert_forecast, data)
 
-    # TODO: Return forecast_id?
+    # TODO: Return forecast_id? A bit tricky because we don't actually have it...
     # return forecast_id
 
 
@@ -199,7 +189,6 @@ def remove_forecast(forecast_id):
         conn.execute(sql_remove_forecast, (forecast_id,))
 
 
-# TODO: This
 async def send_forecast(client, forecast: Forecast):
     """Sends a scheduled forcast message.
 
