@@ -1,4 +1,4 @@
-#!\usr\bin\env python3
+#!/usr/bin/env python3
 """Main wendy the weather bot script.
 
 This script shouldn't be executed with any arguments, however
