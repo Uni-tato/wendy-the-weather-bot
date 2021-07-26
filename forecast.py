@@ -11,9 +11,6 @@ from typing import Dict
 
 DATABASE_FILENAME = "test_forecasts.db"
 
-# TODO(anyone): The Forecasts also need a TYPE / maybe just all args?
-# But how would that be stored in the database...
-
 # TODO: Get individual forecasts by id
 # TODO: Get forecasts by server? channel? so they need a server id column as well?
 # TODO: edit_forecast function
@@ -32,12 +29,15 @@ class Forecast:
         period: How often the forecast should be sent, one of hourly, daily, or weekly.
     """
 
-    def __init__(self, id, channel_id, region, run_time, period):
+    def __init__(self, id, channel_id, region, frequency, period, run_time, readout, unit):
         self.id = id
         self.channel_id = channel_id
         self.region = region
-        self.run_time = run_time
+        self.frequency = frequency
         self.period = period
+        self.run_time = run_time
+        self.readout = readout
+        self.unit = unit
 
         if self.period == "hourly":
             self.timedelta = datetime.timedelta(hours = 1)
@@ -123,8 +123,11 @@ def initialize_database():
                 forecast_id INTEGER PRIMARY KEY,
                 channel_id BIGINT NOT NULL,
                 region TINYTEXT NOT NULL,
+                frequency TINYTEXT NOT NULL,
+                period TINYTEXT NOT NULL,
                 run_time INTEGER NOT NULL,
-                period TINYTEXT NOT NULL
+                readout TINYTEXT NOT NULL,
+                unit TINYTEXT NOT NULL
             );"""
         conn.execute(sql_create_forecasts_table)
 
@@ -138,33 +141,42 @@ def get_forecasts():
         return [Forecast(*row) for row in rows]
 
 
-def add_forecast(channel_id, region, time, period):
+def add_forecast(channel_id, region, frequency, period, time, readout, unit):
     """Adds a forecast to the schedule.
     
     Args:
         channel_id: The Discord channel ID where the forecast needs to be sent.
         region: The region of the forecast (Cities).
+        frequency: How often the forecast should be sent, one of hourly, daily, or weekly.
+        period: what period of time to show the weather for. One of now, today or triday.
         time: Time when the forecast will be sent in minutes since midnight.
-        period: How often the forecast should be sent, one of hourly, daily, or weekly.
+        readout: how much information to give. One of standard, full, or quick.
+        unit: Units to display the data in, one of metric or imperial.
 
-    Returns:
-        The integer ID of the new forecast.
+    # Returns:
+    #    The integer ID of the new forecast.
     """
 
     data = (
         channel_id,
         region,
+        frequency,
+        period,
         time,
-        period
+        readout,
+        unit,
     )
     with DatabaseConnection() as conn:
         sql_insert_forecast = """
             INSERT INTO forecast (
                 channel_id,
                 region,
+                frequency,
+                period,
                 run_time,
-                period
-            ) VALUES (?, ?, ?, ?);
+                readout,
+                unit
+            ) VALUES (?, ?, ?, ?, ?, ?, ?);
         """
         conn.execute(sql_insert_forecast, data)
 

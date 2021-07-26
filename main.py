@@ -73,10 +73,12 @@ async def forecast(ctx, *args):
         forecast daily 6:30 today
             This command would result in "weather today" being run every day at 6:30.
     """
+    # TODO: update this docstring
+
     # TODO(anyone): make changeforecastid command
 
     # TODO(anyone): This throws an error if there aren't enough arguments supplied
-    period = args[0]
+    frequency = args[0]
     time_string = args[1]
     command_args = args[2:]
 
@@ -89,15 +91,26 @@ async def forecast(ctx, *args):
     region = "Auckland"
 
     # Validate the period parameter
-    if period not in ('hourly', 'daily', 'weekly'):
+    if frequency not in ('hourly', 'daily', 'weekly'):
         raise forecast_manager.UnknownFrequencyError(f"The period: '{period}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
+
+    period = "now"
+    readout = "standard"
+    unit = "metric"
+
+    data = (
+        ctx.channel.id,
+        region,
+        frequency,
+        period,
+        time,
+        readout,
+        unit
+    )
 
     # TODO: This will never throw an exception anyway lol
     try:
-        forecast_id = forecast_manager.add_forecast(ctx.channel.id,
-                                                    region,
-                                                    time,
-                                                    period)
+        forecast_id = forecast_manager.add_forecast(*data)
                                                     # *command_args)
     except Exception as e:
         # TODO(anyone): catching all exceptions like this is very dangerous
