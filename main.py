@@ -92,7 +92,7 @@ async def forecast(ctx, *args):
 
     # Validate the period parameter
     if frequency not in ('hourly', 'daily', 'weekly'):
-        raise forecast_manager.UnknownFrequencyError(f"The period: '{period}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
+        raise forecast_manager.UnknownFrequencyError(f"The frequency: '{frequency}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
 
     period = "now"
     readout = "standard"
