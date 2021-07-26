@@ -13,7 +13,6 @@ DATABASE_FILENAME = "test_forecasts.db"
 
 # TODO: Get individual forecasts by id
 # TODO: Get forecasts by server? channel? so they need a server id column as well?
-# TODO: edit_forecast function
 
 class UnknownFrequencyError(Exception):
     pass
@@ -182,6 +181,24 @@ def add_forecast(channel_id, region, frequency, period, time, readout, unit):
 
     # TODO: Return forecast_id? A bit tricky because we don't actually have it...
     # return forecast_id
+
+
+def edit_forecast(forecast_id, argument, value):
+    """Changes a forecast argument.
+    
+    Args:
+        forecast_id: The ID of the forecast whos argument to edit.
+        argument: The argument name
+        value: The new argument value
+    """
+    # TODO: This is very sketch and very sql injection prone, but
+    # It just will not work any other way. idk where I can ask
+    # for a better way to do this
+    with DatabaseConnection() as conn:
+        sql_edit_forecast = """
+            UPDATE forecast SET {arg}=? WHERE forecast_id=?
+        """.format(arg=argument)
+        conn.execute(sql_edit_forecast, (value, forecast_id))
 
 
 def remove_forecast(forecast_id):
