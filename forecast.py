@@ -81,12 +81,6 @@ class Forecast:
 
         return runtime
 
-    # TODO: Since we have a database-model now, and no objects are cached like this... does this even do anything?
-    def update_next_run_time(self):
-        """Sets the next run time of the forecast."""
-
-        self.next_run_time += self.timedelta
-
 
 class FakeContext:
     """Fake Discord message context object.
@@ -210,7 +204,7 @@ def remove_forecast(forecast_id):
     Raises:
         Something.
     """
-    # TODO(anyone): Raise error if it doesn't exist
+
     with DatabaseConnection() as conn:
         sql_remove_forecast = """
             DELETE FROM forecast WHERE forecast_id=?
@@ -236,9 +230,9 @@ async def send_forecast(client, forecast: Forecast):
 
     # TODO: different forecast type arguments
     # await weather(ctx, *forecast.command_args)
+    # or alternatively:
+    # await actual_send_forecast(Forecast)
     await weather(ctx)
-
-    forecast.update_next_run_time()
 
 
 async def forecast_loop(client):
