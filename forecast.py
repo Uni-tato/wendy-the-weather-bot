@@ -11,11 +11,16 @@ from typing import Dict
 
 DATABASE_FILENAME = "test_forecasts.db"
 
-# TODO: Get individual forecasts by id
 # TODO: Get forecasts by server? channel? so they need a server id column as well?
+
 
 class UnknownFrequencyError(Exception):
     pass
+
+
+class ForecastNotFoundError(Exception):
+    """Rasied when the forecast is not found."""
+
 
 class Forecast:
     """Represents a scheduled forecast message.
@@ -38,11 +43,11 @@ class Forecast:
         self.readout = readout
         self.unit = unit
 
-        if self.period == "hourly":
+        if self.frequency == "hourly":
             self.timedelta = datetime.timedelta(hours = 1)
-        elif self.period == "daily":
+        elif self.frequency == "daily":
             self.timedelta = datetime.timedelta(days = 1)
-        elif self.period == "weekly":
+        elif self.frequency == "weekly":
             self.timedelta = datetime.timedelta(weeks = 1)
 
         self.next_run_time = self.calc_first_run_time()
@@ -132,6 +137,28 @@ def get_forecasts():
         sql_select_all_query = "SELECT * FROM forecast"
         rows = conn.execute(sql_select_all_query).fetchall()
         return [Forecast(*row) for row in rows]
+
+
+def get_forecast(forecast_id):
+    """Gets a single forecast object.
+    
+    Args:
+        forecast_id: The ID of the forecast.
+
+    Raises:
+        ForecastNotFoundError: If there exists no forecast with the given ID.
+        
+    Returns:
+        The forecast object with the same ID.
+    """
+    
+    with DatabaseConnection() as conn:
+        sql_get_query = "SELECT * FROM forecast WHERE forecast_id=?"
+        row = conn.execute(sql_get_query, (forecast_id,)).fetchone()
+        if row is None:
+            raise ForecastNotFoundError(f"Forecast with ID {forecast_id} does not exist.")
+        else:
+            return Forecast(*row)
 
 
 def add_forecast(channel_id, region, frequency, period, time, readout, unit):
