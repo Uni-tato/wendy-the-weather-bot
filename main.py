@@ -31,23 +31,39 @@ async def ping(ctx):
 
 
 @client.command()
-async def weather(ctx, *args):
+async def weather(ctx, location, *args):
     """Summarizes the weather for you
 
-    Defaults to the current weather, but can also tell you
-    the weather at a different time, eg: `weather today`
-    will give you a simple summary of the weather over the day.
-    """
+    Options:
+    - location: [The location of the forecast, eg: auckland. This option is required and must be first.]
+    - period: now, today, week
+    - readout: standard, full, quick
+    - units: both, c, f
 
-    when = args[0] if len(args) else "now"
-    if when == 'now':
-        w_data = [weather_info.now_summary()]
-    elif when == 'today':
-        w_data = weather_info.today_summary_generator()
-    else:
-        await ctx.send("Sorry, I don't know when that is.")
-        return
+    Usage:
+    W weather [location] <options>
+    Where [location] is required and <options> are optional.
     
+    eg:
+    W weather queenstown quick now
+    Will give a quick/short summary of the current weather in queenstown.
+    """
+    
+    options = {"period": "now", "readout": "standard", "units": "both"}
+    all_options = {
+        "period": ("today", "week"),
+        "readout": ("full", "quick"),
+        "units": ("c", "f")
+        }# We can ignore the default options.
+    
+    for arg in args:
+        for option_name, option_choices in all_options.items():
+            if arg.lower() in option_choices:
+                options[option_name] = arg.lower()
+
+    # The following needs to be replaced with a send_weather_info() function,
+    # That functions needs to also work with the newer forecast stuff.
+    # So this doesn't work right now lol.
     e = discord.Embed(colour = 0x87CEEB)
     for time, info in w_data:
         e.add_field(name = time, value = info)
