@@ -25,14 +25,19 @@ class Forecast:
 
     Attributes:
         id: Forecast ID of the forecast.
+        server_id: The Discord server ID that the forecast is sent in.
         channel_id: The Discord channel ID where the forecast needs to be sent.
         region: The region of the forecast (Cities).
-        run_time: The time when the message should be sent in minutes since midnight.
-        period: How often the forecast should be sent, one of hourly, daily, or weekly.
+        frequency: How often the forecast should be sent, one of hourly, daily, or weekly.
+        period: what period of time to show the weather for. One of now, today or triday.
+        run_time: Time when the forecast will be sent in minutes since midnight.
+        readout: how much information to give. One of standard, full, or quick.
+        unit: Units to display the data in, one of metric or imperial.
     """
 
-    def __init__(self, id, channel_id, region, frequency, period, run_time, readout, unit):
+    def __init__(self, id, server_id, channel_id, region, frequency, period, run_time, readout, unit):
         self.id = id
+        self.server_id = server_id
         self.channel_id = channel_id
         self.region = region
         self.frequency = frequency
@@ -62,7 +67,7 @@ class Forecast:
         """
 
         return self.next_run_time <= datetime.datetime.now()
-    
+
     def calc_first_run_time(self) -> datetime.datetime:
         """Calculate when the forecast should next run.
 
@@ -194,8 +199,8 @@ def add_forecast(server_id, channel_id, region, frequency, period, time, readout
         readout: how much information to give. One of standard, full, or quick.
         unit: Units to display the data in, one of metric or imperial.
 
-    # Returns:
-    #    The integer ID of the new forecast.
+    Returns:
+        The integer ID of the new forecast.
     """
 
     data = (
@@ -223,8 +228,7 @@ def add_forecast(server_id, channel_id, region, frequency, period, time, readout
         """
         conn.execute(sql_insert_forecast, data)
 
-    # TODO: Return forecast_id? A bit tricky because we don't actually have it...
-    # return forecast_id
+        return conn.lastrowid
 
 
 def edit_forecast(forecast_id, argument, value):
@@ -270,7 +274,7 @@ async def send_forecast(client, forecast: Forecast):
         forecast: The forecast object.
     """
 
-    # TODO(anyone): just no.
+    # TODO: just no.
     from main import weather
 
     channel = client.get_channel(forecast.channel_id)
@@ -287,10 +291,9 @@ async def send_forecast(client, forecast: Forecast):
 
 async def forecast_loop(client):
     """Constantly running loop that checks if a forecast needs to be sent."""
-    
+
     await client.wait_until_ready()
-    #add_forecast(400016596476887040, 'hourly', '15:41',  "today") # bot testing
-    #add_forecast(829634118651478016, 'hourly', '15:41',  "today") # dm
+
     while not client.is_closed():
         await asyncio.sleep(30)
 
