@@ -1,4 +1,4 @@
-#!\usr\bin\env python3
+#!/usr/bin/env python3
 """Main wendy the weather bot script.
 
 This script shouldn't be executed with any arguments, however
@@ -80,7 +80,7 @@ async def forecast(ctx, *args):
     Usage: forecast [frequency] [time] [arguments]
     
     Args:
-        frequency: One of hourly, daily, or weekly.
+        period: One of hourly, daily, or weekly.
         time: Time that the command will be ran at in 24 hour format
             with a colon seperating the hours from the minutes.
         arguments: Any arguments to pass to the weather command
@@ -89,6 +89,8 @@ async def forecast(ctx, *args):
         forecast daily 6:30 today
             This command would result in "weather today" being run every day at 6:30.
     """
+    # TODO: update this docstring
+
     # TODO(anyone): make changeforecastid command
 
     # TODO(anyone): This throws an error if there aren't enough arguments supplied
@@ -96,11 +98,37 @@ async def forecast(ctx, *args):
     time_string = args[1]
     command_args = args[2:]
 
+    # Convert time_str to minutes since midnight
+    # TODO: Validate this
+    time_tuple = tuple(int(n) for n in time_string.split(':'))
+    time = time_tuple[0] * 60 + time_tuple[1]
+
+    # TODO: Accept a region argument, and validate it
+    region = "Auckland"
+
+    # Validate the period parameter
+    if frequency not in ('hourly', 'daily', 'weekly'):
+        raise forecast_manager.UnknownFrequencyError(f"The frequency: '{frequency}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
+
+    period = "now"
+    readout = "standard"
+    unit = "metric"
+
+    data = (
+        ctx.guild.id,
+        ctx.channel.id,
+        region,
+        frequency,
+        period,
+        time,
+        readout,
+        unit
+    )
+
+    # TODO: This will never throw an exception anyway lol
     try:
-        forecast_id = forecast_manager.add_forecast(ctx.channel.id,
-                                                    frequency,
-                                                    time_string,
-                                                    *command_args)
+        forecast_id = forecast_manager.add_forecast(*data)
+                                                    # *command_args)
     except Exception as e:
         # TODO(anyone): catching all exceptions like this is very dangerous
         await ctx.send("I couldn't do that, sorry.")
@@ -132,33 +160,6 @@ async def editforecast(ctx, *args):
     """
 
     pass
-
-
-@client.command()
-async def save(ctx):
-    """Saves data to file, can only be run by admin users"""
-
-    if ctx.author.id not in config.ADMIN_USERS_ID:
-        await ctx.send("You do not have permission to run this command.")
-    else:
-        m = await ctx.send("Saving...")
-        forecast_manager.save()
-        await m.edit(content = "Saved.")
-
-
-@client.command()
-async def load(ctx, *args):
-    """Loads data from file, can only be run by admin users
-    
-    If you're reading this then you're probably not one of the people who can use it.
-    """
-
-    if ctx.author.id not in config.ADMIN_USERS_ID:
-        await ctx.send("You do not have permission to run this command.")
-    else:
-        m = await ctx.send("Loading...")
-        forecast_manager.load(' '.join(args))
-        await m.edit(content = "Loaded")
 
 
 @client.event
