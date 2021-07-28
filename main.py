@@ -99,6 +99,7 @@ async def forecast(ctx, *args):
     unit = "metric"
 
     data = (
+        ctx.guild.id,
         ctx.channel.id,
         region,
         frequency,

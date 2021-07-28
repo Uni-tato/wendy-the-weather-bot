@@ -11,8 +11,6 @@ from typing import Dict
 
 DATABASE_FILENAME = "test_forecasts.db"
 
-# TODO: Get forecasts by server? channel? so they need a server id column as well?
-
 
 class UnknownFrequencyError(Exception):
     pass
@@ -119,6 +117,7 @@ def initialize_database():
         sql_create_forecasts_table = """
             CREATE TABLE IF NOT EXISTS forecast (
                 forecast_id INTEGER PRIMARY KEY,
+                server_id BIGINT NOT NULL,
                 channel_id BIGINT NOT NULL,
                 region TINYTEXT NOT NULL,
                 frequency TINYTEXT NOT NULL,
@@ -130,12 +129,33 @@ def initialize_database():
         conn.execute(sql_create_forecasts_table)
 
 
-def get_forecasts():
-    """Returns a list of all forecasts."""
+def get_forecasts(server_id=None, channel_id=None):
+    """Returns a list of all forecasts.
+    
+    Optionally, you can filter by all forecasts in a server
+    or all forecasts in a certain channel.
+    
+    Optional Args:
+        server_id: The discord server ID to filter by.
+        channel_id: The discord channel ID to filter by.
+    
+    Returns:
+        A list of forecasts.
+    """
+
+    if channel_id is not None:
+        where_clause = " WHERE channel_id=?"
+        data = (channel_id,)
+    elif server_id is not None:
+        where_clause = " WHERE server_id=?"
+        data = (server_id,)
+    else:
+        where_clause = ""
+        data = ()
 
     with DatabaseConnection() as conn:
-        sql_select_all_query = "SELECT * FROM forecast"
-        rows = conn.execute(sql_select_all_query).fetchall()
+        sql_select_all_query = "SELECT * FROM forecast" + where_clause
+        rows = conn.execute(sql_select_all_query, data).fetchall()
         return [Forecast(*row) for row in rows]
 
 
@@ -161,10 +181,11 @@ def get_forecast(forecast_id):
             return Forecast(*row)
 
 
-def add_forecast(channel_id, region, frequency, period, time, readout, unit):
+def add_forecast(server_id, channel_id, region, frequency, period, time, readout, unit):
     """Adds a forecast to the schedule.
     
     Args:
+        server_id: The Discord server ID that the forecast is sent in.
         channel_id: The Discord channel ID where the forecast needs to be sent.
         region: The region of the forecast (Cities).
         frequency: How often the forecast should be sent, one of hourly, daily, or weekly.
@@ -178,6 +199,7 @@ def add_forecast(channel_id, region, frequency, period, time, readout, unit):
     """
 
     data = (
+        server_id,
         channel_id,
         region,
         frequency,
@@ -189,6 +211,7 @@ def add_forecast(channel_id, region, frequency, period, time, readout, unit):
     with DatabaseConnection() as conn:
         sql_insert_forecast = """
             INSERT INTO forecast (
+                server_id,
                 channel_id,
                 region,
                 frequency,
@@ -196,7 +219,7 @@ def add_forecast(channel_id, region, frequency, period, time, readout, unit):
                 run_time,
                 readout,
                 unit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?);
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
         """
         conn.execute(sql_insert_forecast, data)
 
