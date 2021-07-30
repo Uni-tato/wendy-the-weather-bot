@@ -136,3 +136,6 @@ saved_forecasts/
 
 # Forecast databases
 *.db
+
+# vscode settings
+.vscode/
