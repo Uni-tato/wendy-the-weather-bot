@@ -51,13 +51,21 @@ async def weather(ctx, location, *args):
     
     options = weather_info.find_options(location, *args)
 
-    # The following needs to be replaced with a send_weather_info() function,
-    # That functions needs to also work with the newer forecast stuff.
-    # So this doesn't work right now lol.
-    e = discord.Embed(colour = 0x87CEEB)
-    for time, info in w_data:
-        e.add_field(name = time, value = info)
-    await ctx.send(embed = e)
+    # Some options, like the frequency and run_time, don't apply here
+    # (since this is a single weather message), so they're just None.
+    forecast = forecast_manager.Forecast(
+        id=None,
+        server_id=ctx.guild.id,
+        channel_id=ctx.channel.id,
+        region=location,
+        frequency=None,
+        period=options['period'],
+        run_time=None,
+        readout=options['readout'],
+        unit=options['units']
+    )
+
+    weather_info.send_weather(client, forecast)
 
 
 @client.command()

@@ -9,6 +9,8 @@ import pathlib
 import sqlite3 as sl
 from typing import Dict
 
+import weather
+
 DATABASE_FILENAME = "test_forecasts.db"
 
 
@@ -88,21 +90,6 @@ class Forecast:
             runtime += self.timedelta
 
         return runtime
-
-
-class FakeContext:
-    """Fake Discord message context object.
-    
-    The only method this object has is the send method,
-    for use in triggering the weather command manually
-    for the forecasts.
-    """
-
-    def __init__(self, channel):
-        self.channel = channel
-
-    async def send(self, *args, **kwargs):
-        await self.channel.send(*args, **kwargs)
 
 
 class DatabaseConnection:
@@ -266,29 +253,6 @@ def remove_forecast(forecast_id):
         conn.execute(sql_remove_forecast, (forecast_id,))
 
 
-async def send_forecast(client, forecast: Forecast):
-    """Sends a scheduled forcast message.
-
-    Args:
-        client: The main Discord client.
-        forecast: The forecast object.
-    """
-
-    # TODO: just no.
-    from main import weather
-
-    channel = client.get_channel(forecast.channel_id)
-    if channel == None:
-        channel = await client.fetch_channel(forecast.channel_id)
-    ctx = FakeContext(channel)
-
-    # TODO: different forecast type arguments
-    # await weather(ctx, *forecast.command_args)
-    # or alternatively:
-    # await actual_send_forecast(Forecast)
-    await weather(ctx)
-
-
 async def forecast_loop(client):
     """Constantly running loop that checks if a forecast needs to be sent."""
 
@@ -299,7 +263,7 @@ async def forecast_loop(client):
 
         for forecast in get_forecasts():
             if forecast.should_run():
-                await send_forecast(client, forecast)
+                weather.send_weather(client, forecast)
 
 
 initialize_database()

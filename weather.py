@@ -8,6 +8,7 @@ Check out the project here: https://github.com/chubin/wttr.in
 import json
 import requests
 
+import discord
 
 def today_summary_generator():
     """Generates a summary of today's weather at various points throughout the day."""
@@ -86,3 +87,38 @@ def find_options(location, *args):
                 options[option_name] = arg.lower()
     
     return options
+
+
+async def send_weather(client, forecast):
+    """Sends the weather.
+    
+    This can either be the result of manually calling "weather",
+    or because of a scheduled forecast.
+    
+    Args:
+        client: The active discord client.
+        forecast: The forecast to send.
+    """
+
+    when = forecast.period
+
+    if when == 'now':
+        w_data = [now_summary()]
+    elif when == 'today':
+        w_data = today_summary_generator()
+    else:
+        # when == 'triday'
+        # TODO: needs a generator
+        # for now just get the now
+        w_data = [now_summary()]
+
+    e = discord.Embed(colour = 0x87CEEB)
+    for time, info in w_data:
+        e.add_field(name = time, value = info)
+
+    # Get the channel that we need to send too
+    channel = client.get_channel(forecast.channel_id)
+    if channel == None:
+        channel = await client.fetch_channel(forecast.channel_id)
+
+    await forecast.channel.send(embed = e)
