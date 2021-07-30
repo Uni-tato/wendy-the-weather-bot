@@ -47,11 +47,20 @@ async def weather(ctx, *args):
     else:
         await ctx.send("Sorry, I don't know when that is.")
         return
-    
-    e = discord.Embed(colour = 0x87CEEB)
-    for time, info in w_data:
-        e.add_field(name = time, value = info)
-    await ctx.send(embed = e)
+
+    forecast = forecast_manager.Forecast(
+        id=None,
+        server_id=ctx.guild.id,
+        channel_id=ctx.channel.id,
+        region=None,
+        frequency=None,
+        period=when,
+        run_time=None,
+        readout=None,
+        unit=None
+    )
+
+    weather_info.send_weather(client, forecast)
 
 
 @client.command()
