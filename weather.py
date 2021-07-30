@@ -56,6 +56,7 @@ def now_summary_from_raw(data):
     DEGREE_SIGN= u'\N{DEGREE SIGN}'
     return f"{data['weatherDesc'][0]['value']}\nTemp: {data['temp_C']}{DEGREE_SIGN}C (feels like: {data['FeelsLikeC']}{DEGREE_SIGN}C)"
 
+
 def find_options(location, *args):
     """Takes a bunch of arguments and returns them in a dict.
     
