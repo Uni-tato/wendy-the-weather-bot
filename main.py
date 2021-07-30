@@ -61,7 +61,7 @@ async def weather(ctx, location, *args):
 
 
 @client.command()
-async def forecast(ctx, *args):
+async def forecast(ctx, location, time_string, frequency, *args):
     """Schedules the weather command to be run at set intervals
 
     An id will be assigned to the forecast, this id will be used to edit/delete/control
@@ -70,7 +70,7 @@ async def forecast(ctx, *args):
     Usage: forecast [frequency] [time] [arguments]
     
     Args:
-        period: One of hourly, daily, or weekly.
+        frequency: One of hourly, daily, or weekly.
         time: Time that the command will be ran at in 24 hour format
             with a colon seperating the hours from the minutes.
         arguments: Any arguments to pass to the weather command
@@ -80,45 +80,33 @@ async def forecast(ctx, *args):
             This command would result in "weather today" being run every day at 6:30.
     """
     # TODO: update this docstring
-
-    # TODO(anyone): make changeforecastid command
-
-    # TODO(anyone): This throws an error if there aren't enough arguments supplied
-    frequency = args[0]
-    time_string = args[1]
-    command_args = args[2:]
+    # TODO: validate location argument
 
     # Convert time_str to minutes since midnight
     # TODO: Validate this
     time_tuple = tuple(int(n) for n in time_string.split(':'))
     time = time_tuple[0] * 60 + time_tuple[1]
 
-    # TODO: Accept a region argument, and validate it
-    region = "Auckland"
-
-    # Validate the period parameter
+    # Validate the frequency parameter
     if frequency not in ('hourly', 'daily', 'weekly'):
         raise forecast_manager.UnknownFrequencyError(f"The frequency: '{frequency}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
 
-    period = "now"
-    readout = "standard"
-    unit = "metric"
+    options = weather_info.find_options(location, *args)
 
     data = (
         ctx.guild.id,
         ctx.channel.id,
-        region,
+        location,
         frequency,
-        period,
+        options['period'],
         time,
-        readout,
-        unit
+        options['readout'],
+        options['unit']
     )
 
     # TODO: This will never throw an exception anyway lol
     try:
         forecast_id = forecast_manager.add_forecast(*data)
-                                                    # *command_args)
     except Exception as e:
         # TODO(anyone): catching all exceptions like this is very dangerous
         await ctx.send("I couldn't do that, sorry.")

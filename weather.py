@@ -70,6 +70,7 @@ def find_options(location, *args):
     the first possible option listed will be returned in the dict, eg in the example dict["period"]
     would be "now".
     """
+    # TODO: Warn the user if an argument they supplied is unknown?
 
     options = {"location":location, "period": "now", "readout": "standard", "units": "both"}
     
