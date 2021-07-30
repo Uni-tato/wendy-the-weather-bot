@@ -49,17 +49,7 @@ async def weather(ctx, location, *args):
     Will give a quick/short summary of the current weather in queenstown.
     """
     
-    options = {"period": "now", "readout": "standard", "units": "both"}
-    all_options = {
-        "period": ("today", "week"),
-        "readout": ("full", "quick"),
-        "units": ("c", "f")
-        }# We can ignore the default options.
-    
-    for arg in args:
-        for option_name, option_choices in all_options.items():
-            if arg.lower() in option_choices:
-                options[option_name] = arg.lower()
+    options = weather_info.find_options(location, *args)
 
     # The following needs to be replaced with a send_weather_info() function,
     # That functions needs to also work with the newer forecast stuff.

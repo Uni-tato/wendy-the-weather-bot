@@ -50,8 +50,37 @@ def now_summary_from_raw(data):
     
     Can't just reuse hour_summary_from_raw because some of the god damn keys
     are named differently! Also there are different keys/values, eg we don't
-    have a chance of rain pair, which kinda makes sence, but it would be
+    have a chance of rain pair, which kinda makes sense, but it would be
     easier if we did and I could just use the same function lol.
     """
     DEGREE_SIGN= u'\N{DEGREE SIGN}'
     return f"{data['weatherDesc'][0]['value']}\nTemp: {data['temp_C']}{DEGREE_SIGN}C (feels like: {data['FeelsLikeC']}{DEGREE_SIGN}C)"
+
+def find_options(location, *args):
+    """Takes a bunch of arguments and returns them in a dict.
+    
+    The first arg must be the location as we can't validate this against a list.
+    The other args will be placed into a dict where the key is the option they correspond to.
+    The keys and possible values of the returned dict will be:
+    - period: now, today, week
+    - readout: standard, full, quick
+    - units: both, c, f
+    If an argument is left out, eg args does not contain "now", "today" or "week" then
+    the first possible option listed will be returned in the dict, eg in the example dict["period"]
+    would be "now".
+    """
+
+    options = {"location":location, "period": "now", "readout": "standard", "units": "both"}
+    
+    all_options = {
+        "period": ("today", "week"),
+        "readout": ("full", "quick"),
+        "units": ("c", "f")
+        }# We can ignore the default options.
+    
+    for arg in args:
+        for option_name, option_choices in all_options.items():
+            if arg.lower() in option_choices:
+                options[option_name] = arg.lower()
+    
+    return options
