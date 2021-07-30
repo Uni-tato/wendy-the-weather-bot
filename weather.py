@@ -64,10 +64,10 @@ def find_options(location, *args):
     The first arg must be the location as we can't validate this against a list.
     The other args will be placed into a dict where the key is the option they correspond to.
     The keys and possible values of the returned dict will be:
-    - period: now, today, week
+    - period: now, today, triday
     - readout: standard, full, quick
     - units: both, c, f
-    If an argument is left out, eg args does not contain "now", "today" or "week" then
+    If an argument is left out, eg args does not contain "now", "today" or "triday" then
     the first possible option listed will be returned in the dict, eg in the example dict["period"]
     would be "now".
     """
@@ -76,7 +76,7 @@ def find_options(location, *args):
     options = {"location":location, "period": "now", "readout": "standard", "units": "both"}
     
     all_options = {
-        "period": ("today", "week"),
+        "period": ("today", "triday"),
         "readout": ("full", "quick"),
         "units": ("c", "f")
         }# We can ignore the default options.
