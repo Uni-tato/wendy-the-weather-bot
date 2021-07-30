@@ -36,7 +36,7 @@ async def weather(ctx, location, *args):
 
     Options:
     - location: [The location of the forecast, eg: auckland. This option is required and must be first.]
-    - period: now, today, week
+    - period: now, today, triday
     - readout: standard, full, quick
     - units: both, c, f
 
