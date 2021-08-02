@@ -35,9 +35,10 @@ class Forecast:
         run_time: Time when the forecast will be sent in minutes since midnight.
         readout: how much information to give. One of standard, full, or quick.
         unit: Units to display the data in, one of metric or imperial.
+        last_run_time: datetime object representing the last time the forecast was sent.
     """
 
-    def __init__(self, id, server_id, channel_id, region, frequency, period, run_time, readout, unit):
+    def __init__(self, id, server_id, channel_id, region, frequency, period, run_time, readout, unit, last_run_time):
         self.id = id
         self.server_id = server_id
         self.channel_id = channel_id
@@ -47,6 +48,7 @@ class Forecast:
         self.run_time = run_time
         self.readout = readout
         self.unit = unit
+        self.last_run_time = last_run_time
 
         if self.frequency == "hourly":
             self.timedelta = datetime.timedelta(hours = 1)
@@ -56,9 +58,9 @@ class Forecast:
             self.timedelta = datetime.timedelta(weeks = 1)
 
         self.next_run_time = self.calc_first_run_time()
-    
+
     def __repr__(self):
-        return f"Forecast #{self.id} in {self.channel_id} for {self.region} at {self.run_time}"
+        return f"Forecast #{self.id} in {self.channel_id} for {self.region} at {self.run_time} (ran at {self.last_run_time})"
 
     def should_run(self) -> bool:
         """Checks if the forecast should be ran.
@@ -81,20 +83,35 @@ class Forecast:
             next run
         """
 
-        # Create a run time with the corret hour and minute
-        now = datetime.datetime.now()
-        runtime = now.replace(hour = self.run_time // 60, minute = self.run_time % 60)
+        # Ensures it will always be at the correct time (even when the run_time was editted)
+        self.last_run_time = self.last_run_time.replace(hour = self.run_time // 60, minute = self.run_time % 60)
+        return self.last_run_time + self.timedelta
 
-        # Make sure runtime is in the future
-        while runtime < now:
-            runtime += self.timedelta
+        # # Create a run time with the corret hour and minute
+        # now = datetime.datetime.now()
+        # runtime = now.replace(hour = self.run_time // 60, minute = self.run_time % 60)
 
-        return runtime
+        # # Make sure runtime is in the future
+        # while runtime < now:
+        #     runtime += self.timedelta
+
+        # return runtime
+
+    def update_next_run_time(self):
+        """Sets the next run time of the forecast."""
+
+        edit_forecast(self.id, "lastRunTime", self.next_run_time)
+
+        self.last_run_time = self.next_run_time
+        self.next_run_time += self.timedelta
 
 
 class DatabaseConnection:
     def __enter__(self):
-        self.connection = sl.connect(DATABASE_FILENAME)
+        self.connection = sl.connect(
+            DATABASE_FILENAME,
+            detect_types=sl.PARSE_DECLTYPES | sl.PARSE_COLNAMES
+        )
         self.cursor = self.connection.cursor()
         return self.cursor
 
@@ -116,7 +133,8 @@ def initialize_database():
                 period TINYTEXT NOT NULL,
                 run_time INTEGER NOT NULL,
                 readout TINYTEXT NOT NULL,
-                unit TINYTEXT NOT NULL
+                unit TINYTEXT NOT NULL,
+                lastRunTime timestamp NOT NULL
             );"""
         conn.execute(sql_create_forecasts_table)
 
@@ -199,6 +217,7 @@ def add_forecast(server_id, channel_id, region, frequency, period, time, readout
         time,
         readout,
         unit,
+        datetime.datetime.now()
     )
     with DatabaseConnection() as conn:
         sql_insert_forecast = """
@@ -210,8 +229,9 @@ def add_forecast(server_id, channel_id, region, frequency, period, time, readout
                 period,
                 run_time,
                 readout,
-                unit
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                unit,
+                lastRunTime
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         conn.execute(sql_insert_forecast, data)
 
