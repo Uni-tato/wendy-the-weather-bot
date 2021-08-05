@@ -50,14 +50,17 @@ class Forecast:
         self.unit = unit
         self.last_run_time = last_run_time
 
-        if self.frequency == "hourly":
-            self.timedelta = datetime.timedelta(hours = 1)
-        elif self.frequency == "daily":
-            self.timedelta = datetime.timedelta(days = 1)
-        elif self.frequency == "weekly":
-            self.timedelta = datetime.timedelta(weeks = 1)
+        # If they're none, we're working with a temporary Forecast that doesn't have a scheduled time.
+        # Therefore these literally don't matter (and would throw errors)
+        if None not in (self.frequency, self.run_time, self.last_run_time):
+            if self.frequency == "hourly":
+                self.timedelta = datetime.timedelta(hours = 1)
+            elif self.frequency == "daily":
+                self.timedelta = datetime.timedelta(days = 1)
+            elif self.frequency == "weekly":
+                self.timedelta = datetime.timedelta(weeks = 1)
 
-        self.next_run_time = self.calc_first_run_time()
+            self.next_run_time = self.calc_first_run_time()
 
     def __repr__(self):
         return f"Forecast #{self.id} in {self.channel_id} for {self.region} at {self.run_time} (ran at {self.last_run_time})"
