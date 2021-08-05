@@ -286,7 +286,7 @@ async def forecast_loop(client):
 
         for forecast in get_forecasts():
             if forecast.should_run():
-                weather.send_weather(client, forecast)
+                await weather.send_weather(client, forecast)
 
 
 initialize_database()

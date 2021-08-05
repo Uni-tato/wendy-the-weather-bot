@@ -62,10 +62,11 @@ async def weather(ctx, location, *args):
         period=options['period'],
         run_time=None,
         readout=options['readout'],
-        unit=options['units']
+        unit=options['units'],
+        last_run_time=None
     )
 
-    weather_info.send_weather(client, forecast)
+    await weather_info.send_weather(client, forecast)
 
 
 @client.command()

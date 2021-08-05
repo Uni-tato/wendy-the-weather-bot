@@ -121,4 +121,4 @@ async def send_weather(client, forecast):
     if channel == None:
         channel = await client.fetch_channel(forecast.channel_id)
 
-    await forecast.channel.send(embed = e)
+    await channel.send(embed = e)
