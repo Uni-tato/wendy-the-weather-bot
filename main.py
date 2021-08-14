@@ -110,7 +110,7 @@ async def forecast(ctx, location, time_string, frequency, *args):
         options['period'],
         time,
         options['readout'],
-        options['unit']
+        options['units']
     )
 
     # TODO: This will never throw an exception anyway lol

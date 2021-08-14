@@ -53,14 +53,20 @@ class Forecast:
         # If they're none, we're working with a temporary Forecast that doesn't have a scheduled time.
         # Therefore these literally don't matter (and would throw errors)
         if None not in (self.frequency, self.run_time, self.last_run_time):
-            if self.frequency == "hourly":
-                self.timedelta = datetime.timedelta(hours = 1)
-            elif self.frequency == "daily":
-                self.timedelta = datetime.timedelta(days = 1)
-            elif self.frequency == "weekly":
-                self.timedelta = datetime.timedelta(weeks = 1)
+            self.timedelta = Forecast.parse_frequency(self.frequency)
 
-            self.next_run_time = self.calc_first_run_time()
+            # self.next_run_time = self.calc_first_run_time()
+
+    @staticmethod
+    def parse_frequency(frequency):
+        if frequency == "hourly":
+            return datetime.timedelta(hours = 1)
+        elif frequency == "daily":
+            return datetime.timedelta(days = 1)
+        elif frequency == "weekly":
+            return datetime.timedelta(weeks = 1)
+        
+        # TODO: probably should return something other than none
 
     def __repr__(self):
         return f"Forecast #{self.id} in {self.channel_id} for {self.region} at {self.run_time} (ran at {self.last_run_time})"
@@ -87,8 +93,8 @@ class Forecast:
         """
 
         # Ensures it will always be at the correct time (even when the run_time was editted)
-        self.last_run_time = self.last_run_time.replace(hour = self.run_time // 60, minute = self.run_time % 60)
-        return self.last_run_time + self.timedelta
+        corrected_last_run_time = self.last_run_time.replace(hour = self.run_time // 60, minute = self.run_time % 60)
+        return corrected_last_run_time + self.timedelta
 
         # # Create a run time with the corret hour and minute
         # now = datetime.datetime.now()
