@@ -1,4 +1,4 @@
-#!\usr\bin\env python3
+#!/usr/bin/env python3
 """Main wendy the weather bot script.
 
 This script shouldn't be executed with any arguments, however
@@ -31,31 +31,46 @@ async def ping(ctx):
 
 
 @client.command()
-async def weather(ctx, *args):
+async def weather(ctx, location, *args):
     """Summarizes the weather for you
 
-    Defaults to the current weather, but can also tell you
-    the weather at a different time, eg: `weather today`
-    will give you a simple summary of the weather over the day.
-    """
+    Options:
+    - location: [The location of the forecast, eg: auckland. This option is required and must be first.]
+    - period: now, today, triday
+    - readout: standard, full, quick
+    - units: both, c, f
 
-    when = args[0] if len(args) else "now"
-    if when == 'now':
-        w_data = [weather_info.now_summary()]
-    elif when == 'today':
-        w_data = weather_info.today_summary_generator()
-    else:
-        await ctx.send("Sorry, I don't know when that is.")
-        return
+    Usage:
+    W weather [location] <options>
+    Where [location] is required and <options> are optional.
     
-    e = discord.Embed(colour = 0x87CEEB)
-    for time, info in w_data:
-        e.add_field(name = time, value = info)
-    await ctx.send(embed = e)
+    eg:
+    W weather queenstown quick now
+    Will give a quick/short summary of the current weather in queenstown.
+    """
+    
+    options = weather_info.find_options(location, *args)
+
+    # Some options, like the frequency and run_time, don't apply here
+    # (since this is a single weather message), so they're just None.
+    forecast = forecast_manager.Forecast(
+        id=None,
+        server_id=ctx.guild.id,
+        channel_id=ctx.channel.id,
+        region=location,
+        frequency=None,
+        period=options['period'],
+        run_time=None,
+        readout=options['readout'],
+        unit=options['units'],
+        last_run_time=None
+    )
+
+    await weather_info.send_weather(client, forecast)
 
 
 @client.command()
-async def forecast(ctx, *args):
+async def forecast(ctx, location, time_string, frequency, *args):
     """Schedules the weather command to be run at set intervals
 
     An id will be assigned to the forecast, this id will be used to edit/delete/control
@@ -73,18 +88,34 @@ async def forecast(ctx, *args):
         forecast daily 6:30 today
             This command would result in "weather today" being run every day at 6:30.
     """
-    # TODO(anyone): make changeforecastid command
+    # TODO: update this docstring
+    # TODO: validate location argument
 
-    # TODO(anyone): This throws an error if there aren't enough arguments supplied
-    frequency = args[0]
-    time_string = args[1]
-    command_args = args[2:]
+    # Convert time_str to minutes since midnight
+    # TODO: Validate this
+    time_tuple = tuple(int(n) for n in time_string.split(':'))
+    time = time_tuple[0] * 60 + time_tuple[1]
 
+    # Validate the frequency parameter
+    if frequency not in ('hourly', 'daily', 'weekly'):
+        raise forecast_manager.UnknownFrequencyError(f"The frequency: '{frequency}' is unknown, should be 'hourly', 'daily' or 'weekly'.")
+
+    options = weather_info.find_options(location, *args)
+
+    data = (
+        ctx.guild.id,
+        ctx.channel.id,
+        location,
+        frequency,
+        options['period'],
+        time,
+        options['readout'],
+        options['units']
+    )
+
+    # TODO: This will never throw an exception anyway lol
     try:
-        forecast_id = forecast_manager.add_forecast(ctx.channel.id,
-                                                    frequency,
-                                                    time_string,
-                                                    *command_args)
+        forecast_id = forecast_manager.add_forecast(*data)
     except Exception as e:
         # TODO(anyone): catching all exceptions like this is very dangerous
         await ctx.send("I couldn't do that, sorry.")
@@ -116,33 +147,6 @@ async def editforecast(ctx, *args):
     """
 
     pass
-
-
-@client.command()
-async def save(ctx):
-    """Saves data to file, can only be run by admin users"""
-
-    if ctx.author.id not in config.ADMIN_USERS_ID:
-        await ctx.send("You do not have permission to run this command.")
-    else:
-        m = await ctx.send("Saving...")
-        forecast_manager.save()
-        await m.edit(content = "Saved.")
-
-
-@client.command()
-async def load(ctx, *args):
-    """Loads data from file, can only be run by admin users
-    
-    If you're reading this then you're probably not one of the people who can use it.
-    """
-
-    if ctx.author.id not in config.ADMIN_USERS_ID:
-        await ctx.send("You do not have permission to run this command.")
-    else:
-        m = await ctx.send("Loading...")
-        forecast_manager.load(' '.join(args))
-        await m.edit(content = "Loaded")
 
 
 @client.event
