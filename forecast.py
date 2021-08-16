@@ -54,8 +54,7 @@ class Forecast:
         # Therefore these literally don't matter (and would throw errors)
         if None not in (self.frequency, self.run_time, self.last_run_time):
             self.timedelta = Forecast.parse_frequency(self.frequency)
-
-            # self.next_run_time = self.calc_first_run_time()
+            self.next_run_time = self.last_run_time + self.timedelta
 
     @staticmethod
     def parse_frequency(frequency):
@@ -80,39 +79,26 @@ class Forecast:
         """
 
         return self.next_run_time <= datetime.datetime.now()
-
-    def calc_first_run_time(self) -> datetime.datetime:
-        """Calculate when the forecast should next run.
-
-        This calculates the first next time that matches
-        the hours and minutes set from the forecast's run_time.
-
-        Returns:
-            A datetime object representing the datetime of the
-            next run
-        """
-
-        # Ensures it will always be at the correct time (even when the run_time was editted)
-        corrected_last_run_time = self.last_run_time.replace(hour = self.run_time // 60, minute = self.run_time % 60)
-        return corrected_last_run_time + self.timedelta
-
-        # # Create a run time with the corret hour and minute
-        # now = datetime.datetime.now()
-        # runtime = now.replace(hour = self.run_time // 60, minute = self.run_time % 60)
-
-        # # Make sure runtime is in the future
-        # while runtime < now:
-        #     runtime += self.timedelta
-
-        # return runtime
-
-    def update_next_run_time(self):
+    
+    def update_run_time(self):
         """Sets the next run time of the forecast."""
 
-        edit_forecast(self.id, "lastRunTime", self.next_run_time)
+        # TODO: If the period is hours, shouldn't this NOT replace hours?
+        # Or... has incrementing the correction as we've done prevent that?
+        corrected_last_run_time = self.last_run_time.replace(hour = self.run_time // 60, minute = self.run_time % 60)
+        
+        # Make sure runtime is in the future
+        now = datetime.datetime.now()
+        while corrected_last_run_time < now:
+            corrected_last_run_time += self.timedelta
+        
+        # Aaaaand now make sure it's exactly one in the past
+        while corrected_last_run_time > now:
+            corrected_last_run_time -= self.timedelta
 
-        self.last_run_time = self.next_run_time
-        self.next_run_time += self.timedelta
+        edit_forecast(self.id, "lastRunTime", corrected_last_run_time)
+        self.last_run_time = corrected_last_run_time
+        self.next_run_time = self.last_run_time + self.timedelta
 
 
 class DatabaseConnection:
@@ -293,6 +279,7 @@ async def forecast_loop(client):
         for forecast in get_forecasts():
             if forecast.should_run():
                 await weather.send_weather(client, forecast)
+                forecast.update_run_time()
 
 
 initialize_database()
